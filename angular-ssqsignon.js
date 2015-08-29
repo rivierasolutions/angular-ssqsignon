@@ -4,7 +4,7 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         client = null,
         whoAmIPromise = null,
         refreshAccessTokenPromise = null,
-        apiEndpoint = 'https://ssqsignon.com',
+        apiEndpoint = 'https://tinyusers.azurewebsites.net',
         store = localStore();
 
     this.init = function(useModule, useClient, customStore, customAPIEndpoint) {
@@ -175,22 +175,30 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
     .factory('refreshAccessToken', function ($q, $injector) {
         return {
             responseError: function(response) {
-                if (response.status == 401 && response.config.url.search('whoami') == -1) {
+                if (response.status == 401 && wasNotWhoAmIRequest(response)) {
                     return $injector.get('authenticator').whoAmIAgain(response.config);
                 } else {
                     return $q.reject(response);
                 }
             }
         };
+
+        function wasNotWhoAmIRequest(response) {
+            return response.config.url.search('whoami') == -1
+        }
     })
     .factory('appendAccessToken', function ($injector) {
         return {
             request: function (config) {
                 var token = $injector.get('authenticator').accessToken();
-                if (token) {
+                if (token && isNotAuthRequest(config)) {
                     config.headers['Authorization'] = [ 'Bearer', token ].join(' ');
                 }
                 return config;
             }
         };
+
+        function isNotAuthRequest(config) {
+            return config.url.search('auth') == -1;
+        }
     });
