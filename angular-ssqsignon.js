@@ -2,12 +2,13 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
 
     var module = null,
         client = null,
+        authUrl = null,
         whoAmIPromise = null,
         refreshAccessTokenPromise = null,
         apiEndpoint = 'https://tinyusers.azurewebsites.net',
         store = localStore();
 
-    this.init = function(useModule, useClient, customStore, customAPIEndpoint) {
+    this.init = function(useModule, useClient, useAuthProxyUrl, customStore, customAPIEndpoint) {
         module = useModule;
         client = useClient;
         if (customStore) {
@@ -18,6 +19,7 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         if (customAPIEndpoint) {
             apiEndpoint = customAPIEndpoint;
         }
+        authUrl = useAuthProxyUrl ? useAuthProxyUrl : [ apiEndpoint, module, 'auth' ].join('/');
     };
 
     this.$get = function($q, $http, $location) {
@@ -45,6 +47,10 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
                 return $q.when(clearTokens(keepRefreshToken));
             },
 
+            accessToken: function() {
+                return accessToken();
+            },
+
             ssoMaster: {
                 safeRedirect: function(denyAccess) {
                     return $q(function(resolve, reject) {
@@ -70,15 +76,26 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
                     window.location.assign([masterUri, '?client_id=', encodeURI(client), '&redirect_uri=', encodeURI(callbackUri), '&scope=', encodeURI(scope), '&state=', encodeURI(state) ].join(''));
                 },
 
-                useTokens: function(accessInfo) {
-                    storeTokens({ accessToken: accessInfo.access_token, refreshToken: accessInfo.refresh_token });
-                    return whoAmI();
+                consumeAuthorizationCode: function(code, redirectUri) {
+                    return $q(function (resolve, reject) {
+                        $http.post(authUrl, { client_id: client, grant_type: 'authorization_code', redirect_uri: redirectUri, code: code })
+                            .success(function (data) {
+                                resolve({ userId: data.user_id, scope: data.scope, accessToken: data.access_token, refreshToken: data.refresh_token });
+                            })
+                            .error(function (data, status) {
+                                reject({ data: data, status: status });
+                            });
+                    })
+                        .then(function(accessInfo) {
+                            storeTokens(accessInfo);
+                            return whoAmI();
+                        });
                 }
             },
 
             login: function(username, password) {
                 return $q(function(resolve, reject) {
-                    $http.post([ apiEndpoint, module, 'auth' ].join('/'), { client_id: client, grant_type: 'password', username: username, password: password })
+                    $http.post(authUrl, { client_id: client, grant_type: 'password', username: username, password: password })
                         .success(function(data) {
                             resolve({ userId: data.user_id, scope: data.scope, accessToken: data.access_token, refreshToken: data.refresh_token });
                         })
@@ -90,10 +107,6 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
                         storeTokens(data);
                         return { userId: data.userId, scope: data.scope };
                     });
-            },
-
-            accessToken: function() {
-                return accessToken();
             }
         };
 
@@ -122,7 +135,7 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
 
         function refresh() {
             return $q(function (resolve, reject) {
-                $http.post([ apiEndpoint, module, 'auth' ].join('/'), { client_id: client, grant_type: 'refresh_token', refresh_token: store.get('refresh_token') })
+                $http.post(authUrl, { client_id: client, grant_type: 'refresh_token', refresh_token: store.get('refresh_token') })
                     .success(function (data) {
                         resolve({ userId: data.user_id, scope: data.scope, accessToken: data.access_token, refreshToken: data.refresh_token });
                     })
