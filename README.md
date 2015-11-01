@@ -73,9 +73,9 @@ SSQ signon authorization helper for Angular Js
         $httpProvider.interceptors.push('refreshAccessToken');
     });
 
-### Single Sign On master web app
+### Single Sign On (master web app)
 
-#### Safely redirect to the slave app with the user's authorization code
+#### Safely redirect back to the slave app with the user's authorization code
 
     app.controller('MyCtrl', function($scope, $location, $q, authenticator) {
     
@@ -92,7 +92,7 @@ SSQ signon authorization helper for Angular Js
       }
     });
 
-### Single Sign On slave web app
+### Single Sign On (slave web app)
 
 #### Redirect to the master app for log in
 
@@ -117,6 +117,12 @@ SSQ signon authorization helper for Angular Js
           return $q.reject('access-denied');
       }
     });
+    
+#### Configure the authentication helper to work with a token endpoint proxy
+
+     app.config(function(authenticatorProvider) {
+            authenticatorProvider.init('your-module-name', 1234, '/my-auth-proxy-url');
+        });
 
 ## How it works
 
@@ -129,6 +135,7 @@ For an online demo go to [SSQ signon demos](https://ssqsignon.com/home/demos.htm
 ## Related modules
 
   - [Angular Js](https://angularjs.org/)
+  - [SSQ signon authproxy](https://github.com/ssqsignon/ssqsignon-authproxy)
 
 ## Credits
 
