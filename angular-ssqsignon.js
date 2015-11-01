@@ -5,7 +5,7 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         authUrl = null,
         whoAmIPromise = null,
         refreshAccessTokenPromise = null,
-        apiEndpoint = 'https://tinyusers.azurewebsites.net',
+        apiEndpoint = 'https://ssqsignon.com',
         store = localStore();
 
     this.init = function(useModule, useClient, useAuthProxyUrl, customStore, customAPIEndpoint) {
