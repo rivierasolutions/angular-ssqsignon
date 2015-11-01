@@ -19,13 +19,17 @@ SSQ signon authorization helper for Angular Js
 
 ## Usage
 
-### Initialze the authentication helper with your module name and client Id.
+### Initialze the authentication helper
+
+with your *SSQ signon* module name and client Id.
 
     app.config(function(authenticatorProvider) {
         authenticatorProvider.init('your-module-name', 1234);
     });
     
-### Log in with a username and password, and store the access and refresh tokens
+### Log in with a username and password
+
+and store the access and refresh tokens.
 
     app.controller('MyCtrl', function($scope, authenticator) {
     
@@ -37,7 +41,9 @@ SSQ signon authorization helper for Angular Js
           });
     });
     
-### Get the current user based on the access token
+### Get the current user
+
+based on the stored access token
 
     app.controller('MyCtrl', function($scope, authenticator) {
     
@@ -49,7 +55,9 @@ SSQ signon authorization helper for Angular Js
         });
     });
     
-### Log out (discard the stored access and refresh tokens)
+### Log out
+
+or literally, discard the stored access and refresh tokens
 
     app.controller('MyCtrl', function($scope, authenticator) {
     
@@ -59,14 +67,19 @@ SSQ signon authorization helper for Angular Js
         });
     });
     
-### Automatically append the stored access token to all AJAX requests
+### Automatically handle the access token
+
+Automatically append the stored access token to all AJAX requests
 
     app.config(function($httpProvider) {
     
         $httpProvider.interceptors.push('appendAccessToken');
     });
     
-### If an AJAX request failed due to an expired access token, automatically swap a refresh token for a new access token (and a new refresh token), and repeat the request.
+### Automatically handle the refresh token
+
+If an AJAX request failed with a HTTP status of `401` (i.e. likely due to an expired access token), automatically swap
+the stored refresh token for a new access token (and a new refresh token), and repeat the request.
 
     app.config(function($httpProvider) {
     
@@ -157,9 +170,9 @@ Returns a promise that resolves either to the user identity and scope contained 
 ##### How It works
 
 The `whoAmI` method will check whether an access token has already been stored in the storage used by the authentication helper.
-If so, it will validate the token with SSQ signon's *token validation endpoint*, and if the token is valid, return the identity inside the token
-that was provided by the *token validation endpoint*. If no token is stored, or the stored token turns out invalid, an attempt will
-be made to retrieve a stored refresh token, and swap it for a new access token. If that fails, obtaining a valid access token requires
+If so, it will validate the token with *SSQ signon's* [token validation endpoint](https://ssqsignon.com/home/docs.html#tokenvalidationendpoint), and if the token is valid, return the identity inside the token
+that was provided by the [token validation endpoint](https://ssqsignon.com/home/docs.html#tokenvalidationendpoint). If no token is stored, or the stored token turns out invalid, an attempt will
+be made to retrieve a stored refresh token, and swap it for a new access token with *SSQ singon's* [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint). If that fails, obtaining a valid access token requires
 user input (via e.g. a login dialog or Single Sign On redirect), thus the special 'ask-user' error code is returned.
 
 #### `whoAmIAgain(request)`
@@ -180,13 +193,13 @@ Used by the `refreshAccessToken` [interceptor](https://docs.angularjs.org/api/ng
     
 ##### How It works
 
-The `whoAmIAgain` will make an attempt to retrieve a stored refresh token, and swap it for a new access token. 
+The `whoAmIAgain` will make an attempt to retrieve a stored refresh token, and swap it for a new access token with *SSQ singon's* [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint). 
 If that fails, obtaining a valid access token requires user input (via e.g. a login dialog or Single Sign On redirect),
 thus the special 'ask-user' error code is returned.
 The `refreshAccessToken` [interceptor](https://docs.angularjs.org/api/ng/service/$http#interceptors) uses this method
 to try and refresh the access token every time an AJAX request returns a `401` error code.
 
-The other typical use case would be to obtain a new access with a proper scope once the user has changes his/her own permission level. 
+The other typical use case would be to obtain a new access with a proper scope once the user has changed his/her own permission level. 
 
 #### `forgetMe(keepRefreshToken)`
 
@@ -216,6 +229,17 @@ The `response_type` parameter is not required, it will be set to `code` by defau
     - The safe redirect URI.
 - Promise rejected return value
     - An unexpected error has occurred.
+    
+##### How it works
+
+The `safeRedirect` method will try to validate the requested redirection, and obtain a safe redirect URI from *SSQ signon's* [redirect validation endpoint](https://ssqsignon.com/home/docs.html#redirectvalidationendpoint).
+The request will require the `client_id`, `redirect_uri`, `scope` and `state` parameters, which `safeRedirect` will attempt to get
+from the query string of the current window's URL. The current access token will also be passed to generate an authorization code
+that will transfer the user's identity in the redirect URI. If the [redirect validation endpoint](https://ssqsignon.com/home/docs.html#redirectvalidationendpoint) validates the redirection request
+as safe, the safe redirect URI will be returned, which `safeRedirect` will immediately use to redirect the browser window to the other app.
+
+The `denyAccess` parameter can be set to `true` to still redirect to the other app, but explicitly state that the user has denied access
+while signing in with the SSO master app.
 
 #### `ssoSlave.loginWithMaster(masterUri, scope, state, callbackUri)`
 
@@ -233,8 +257,8 @@ This query string can be processed by `ssoMaster.safeRedirect(denyAccess)` after
 
 #### `ssoSlave.consumeAuthorizationCode(code, redirectUri)`
 
-Returns a promise that will swap the authorization code received with the SSO redirect for an access token, and return the user identity and scope
-inside the obtained token.
+Returns a promise that will swap the authorization code received with the SSO redirect for an access token using *SSQ signon's* [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint),
+and return the user identity and scope inside the obtained token.
 Since swapping an authorization code for an access token requires the *client secret*, the authorization helper should query a proxy that
 will append it to the request, rather than the *SSQ singon* token endpoint directly.
 
@@ -246,6 +270,17 @@ will append it to the request, rather than the *SSQ singon* token endpoint direc
 - Promise rejected return value
     - `'ask-user'` - a valid access token could not be obtained. Ask the user to log in again.
     - all others: an unexpected error has occurred.
+    
+##### How it works
+
+The `consumeAuthorizationCode` method will try to swap the authorization code passed along in the safe redirect URI
+for an access token using *SSQ signon's* [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint). If succeeded
+the access (and possibly refresh) token will be stored, and the user's identity returned.
+
+Please note that using the [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint) to swap an authorization code
+for an access token requires a client secret. The client secret (as the name implies) cannot be visible to the public (yes, hardcoded in javascript counts as visible to the public),
+so your server will have to proxy the request to the [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint)
+and append the client credential as needed.
 
 ### `login(username, password)`
 
@@ -258,6 +293,11 @@ Returns a promise that will swap the username and password for an access token, 
     - `{ userId: 'my-current-user-id', scope: 'my current scope' }` - a valid access token was obtained and contained the following user identity.
 - Promise rejected return value
     - An unexpected error has occurred.
+    
+#### How it works
+
+The `login` method will try to swap a username and password for an access token using *SSQ signon's* [token endpoint](https://ssqsignon.com/home/docs.html#tokenendpoint).
+If succeeded, the access (and possibly refresh) token will be stored, and the user's identity returned.
 
 ## Examples
 
