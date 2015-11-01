@@ -1,17 +1,17 @@
 # angular-ssqsignon
 SSQ signon authorization helper for Angular Js
 
-## Installation
-
-### Requirements
+## Requirements
 
   - [Angular Js](https://angularjs.org/)
   - A web browser with [HTML5 local storage](http://www.w3schools.com/html/html5_webstorage.asp) support.
 
+## Installation
+
 ### Get the file
 
     <!-- Reference or download latest version -->
-    <script src="//rawgit.com/ssqsignon/angular-ssqsignon/1.0.2/angular-ssqsignon.js"></script>
+    <script src="//rawgit.com/ssqsignon/angular-ssqsignon/1.0.3/angular-ssqsignon.js"></script>
     
 ### Add dependency to your project
 
@@ -123,8 +123,141 @@ SSQ signon authorization helper for Angular Js
      app.config(function(authenticatorProvider) {
             authenticatorProvider.init('your-module-name', 1234, '/my-auth-proxy-url');
         });
+        
+## Documentation
 
-## How it works
+### `authenticatorProvider` methods
+
+#### `init(useModule, useClient, useAuthProxyUrl, customStore, customAPIEndpoint)`
+
+Initializes the authentication helper.
+
+- Arguments:
+    - `useModule` (text) - the module name to use when querying *SSQ signon*.
+    - `useClient` (int) - the client id to use when querying *SSQ signon*.
+    - `useAuthProxyUrl` (url) - the URL address to use in case *SSQ signon's* token endpoint should be queried through a proxy.
+    - `customStore` (object) - An interface to use for storing access tokens instead of the browser's local storage. The passed object should expose three methods:
+        - `set(name, value)` - store a value under *name*.
+        - `get(name)` - returns the value stored under *name*.
+        - `remove(name)` - clear the value stored under *name*.
+    - `customAPIendpoint` (url) - the URL address to use in case all requests to *SSQ signon* should be directed through a proxy.
+
+### `authenticator` methods
+
+#### `whoAmI()`
+
+Returns a promise that resolves either to the user identity and scope contained in the stored access token, or an error code.
+
+- Promise resolved return value
+    - `{ userId: 'my-current-user-id', scope: 'my current scope' }` - a valid access token was obtained and contained the following user identity
+- Promise rejected return value
+    - `'ask-user'` - a valid access token could not be obtained. Ask the user to log in.
+    - all others: an unexpected error has occurred.
+    
+##### How It works
+
+The `whoAmI` method will check whether an access token has already been stored in the storage used by the authentication helper.
+If so, it will validate the token with SSQ signon's *token validation endpoint*, and if the token is valid, return the identity inside the token
+that was provided by the *token validation endpoint*. If no token is stored, or the stored token turns out invalid, an attempt will
+be made to retrieve a stored refresh token, and swap it for a new access token. If that fails, obtaining a valid access token requires
+user input (via e.g. a login dialog or Single Sign On redirect), thus the special 'ask-user' error code is returned.
+
+#### `whoAmIAgain(request)`
+
+Returns a promise which tries to obtain a new access token using a stored refresh token, and when given a request configuration
+fires the request after an access token was successfully obtained.
+Use this after a request has failed due to an invalid access token to seamlessly get a new access token and repeat the request.
+Used by the `refreshAccessToken` [interceptor](https://docs.angularjs.org/api/ng/service/$http#interceptors).
+
+- Arguments
+    - `request` ([request configuration object](https://docs.angularjs.org/api/ng/service/$http#usage)) - If not null, `whoAmIAgain` will repeat the request
+        with the newly obtained access token, and return a promise of that request.
+- Promise resolved return value
+    - Either `undefined` or a result of `request` 
+- Promise rejected return value
+    - `'ask-user'` - a valid access token could not be obtained. Ask the user to log in.
+    - all others: an unexpected error has occurred, or `request` has failed.
+    
+##### How It works
+
+The `whoAmIAgain` will make an attempt to retrieve a stored refresh token, and swap it for a new access token. 
+If that fails, obtaining a valid access token requires user input (via e.g. a login dialog or Single Sign On redirect),
+thus the special 'ask-user' error code is returned.
+The `refreshAccessToken` [interceptor](https://docs.angularjs.org/api/ng/service/$http#interceptors) uses this method
+to try and refresh the access token every time an AJAX request returns a `401` error code.
+
+The other typical use case would be to obtain a new access with a proper scope once the user has changes his/her own permission level. 
+
+#### `forgetMe(keepRefreshToken)`
+
+Returns a promise that clears the currently stored access token and (optionally) refresh token.
+
+- Arguments
+    - `keepRefreshToken` - when set to `true`, only the current access token will be cleared.
+- Promise resolved return value
+    - none 
+- Promise rejected return value
+    - An unexpected error has occurred.
+       
+#### `accessToken()`
+
+Returns the current access token.
+
+#### `ssoMaster.safeRedirect(denyAccess)`
+
+Returns a promise that will obtain a *safe redirect URI* from *SSQ signon*, and redirect the browser window to that URI.
+This method assumes that the URL address in the browser window contains a query string compliant with the [OAuth 2.0
+authorization endpoint specification](http://tools.ietf.org/html/rfc6749#section-4.1.1), i.e. `client_id`, `redirect_uri`, `scope` and `state` parameters.
+The `response_type` parameter is not required, it will be set to `code` by default.
+
+- Arguments
+    - `denyAccess` - When set to `true`, the user will be denied access after the redirection.
+- Promise resolved return value
+    - The safe redirect URI.
+- Promise rejected return value
+    - An unexpected error has occurred.
+
+#### `ssoSlave.loginWithMaster(masterUri, scope, state, callbackUri)`
+
+Will redirect the browser window to a SSO master app URI, with a query string compliant with the [OAuth 2.0 authorization endpoint
+specification](http://tools.ietf.org/html/rfc6749#section-4.1.1) (the `response_type` parameter is not required).
+This query string can be processed by `ssoMaster.safeRedirect(denyAccess)` after redirection. 
+
+- Arguments
+    - `masterUri` - The URI to the SSO master app.
+    - `scope` - The requested scope.
+    - `state` - Any string that you need to carry over with the redirection. If nothing else, set this to a randomly generated value
+        and the verify it before calling `ssoSlave.consumeAuthorizationCode(code, redirectUri)` for extra security.
+    - `callbackUri` - The URI that the SSO master app should redirect to after log in. Typically you will set to some URI pointing to
+        your SSO slave app.
+
+#### `ssoSlave.consumeAuthorizationCode(code, redirectUri)`
+
+Returns a promise that will swap the authorization code received with the SSO redirect for an access token, and return the user identity and scope
+inside the obtained token.
+Since swapping an authorization code for an access token requires the *client secret*, the authorization helper should query a proxy that
+will append it to the request, rather than the *SSQ singon* token endpoint directly.
+
+- Arguments
+    - `code` -  The authorization code extracted from the request
+    - `redirect URI` - The redirect URI passed to the master SSO app, for verification.
+- Promise resolved return value
+    - `{ userId: 'my-current-user-id', scope: 'my current scope' }` - a valid access token was obtained and contained the following user identity
+- Promise rejected return value
+    - `'ask-user'` - a valid access token could not be obtained. Ask the user to log in again.
+    - all others: an unexpected error has occurred.
+
+### `login(username, password)`
+
+Returns a promise that will swap the username and password for an access token, and return the user identity and scope inside the obtained token.
+
+- Arguments
+    - `username` -  The username.
+    - `password` - The password.
+- Promise resolved return value
+    - `{ userId: 'my-current-user-id', scope: 'my current scope' }` - a valid access token was obtained and contained the following user identity.
+- Promise rejected return value
+    - An unexpected error has occurred.
 
 ## Examples
 
