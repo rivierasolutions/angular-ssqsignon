@@ -22,7 +22,7 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         authUrl = useAuthProxyUrl ? useAuthProxyUrl : [ apiEndpoint, module, 'auth' ].join('/');
     };
 
-    this.tokenProxy = function(url, clientId, customStore) {
+    this.authProxy = function(url, clientId, customStore) {
         this.init(undefined, clientId, url, customStore, undefined);
     };
 

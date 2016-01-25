@@ -19,12 +19,20 @@ SSQ signon authorization helper for Angular Js
 
 ## Usage
 
-### Initialze the authentication helper
+### Initialze the authentication helper (direct)
 
-with your *SSQ signon* module name and client Id.
+with your *SSQ signon* module name and client Id to communicate with https://ssqsignon.com directly.
 
     app.config(function(authenticatorProvider) {
         authenticatorProvider.init('your-module-name', 1234);
+    });
+    
+### Initialize the authentication helper (proxy)
+
+with a url if your want requests to the token endpoint to go through your backend.
+
+    app.config(function(authenticatorProvider) {
+        authenticatorProvider.authProxy('/auth');
     });
     
 ### Log in with a username and password
@@ -143,7 +151,7 @@ the stored refresh token for a new access token (and a new refresh token), and r
 
 #### `init(useModule, useClient, useAuthProxyUrl, customStore, customAPIEndpoint)`
 
-Initializes the authentication helper.
+Initializes the authentication helper for direct communication with https://ssqisgnon.com.
 
 - Arguments:
     - `useModule` (text) - the module name to use when querying *SSQ signon*.
@@ -154,6 +162,19 @@ Initializes the authentication helper.
         - `get(name)` - returns the value stored under *name*.
         - `remove(name)` - clear the value stored under *name*.
     - `customAPIendpoint` (url) - the URL address to use in case all requests to *SSQ signon* should be directed through a proxy.
+    
+#### `authProxy(url, useClient, customStore)`
+
+Initializes the authentication helper for communication with SSQ singon's token endpoint via a proxy.
+Requests to other endpoints will be sent directly to https://ssqsignon.com
+
+- Arguments:
+    - `url` (url) - the URL address of the proxy.
+    - `useClient` (int) - the client id to use when querying *SSQ signon*.
+    - `customStore` (object) - An interface to use for storing access tokens instead of the browser's local storage. The passed object should expose three methods:
+        - `set(name, value)` - store a value under *name*.
+        - `get(name)` - returns the value stored under *name*.
+        - `remove(name)` - clear the value stored under *name*.
 
 ### `authenticator` methods
 
