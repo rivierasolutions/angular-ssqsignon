@@ -26,6 +26,10 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         this.init(undefined, clientId, url, customStore, undefined);
     };
 
+    this.proxy = function(url, customStore) {
+        this.init(undefined, undefined, undefined, customStore, url);
+    };
+
     this.$get = function($q, $http, $location) {
 
         return {
