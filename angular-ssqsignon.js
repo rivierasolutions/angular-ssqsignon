@@ -46,8 +46,8 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
 
             whoAmIAgain: function(request) {
                 return getNewAccessToken()
-                    .then(function() {
-                        return request ? $http(request) : $q.when();
+                    .then(function(data) {
+                        return request ? $http(request) : data;
                     });
             },
 
@@ -115,6 +115,10 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
                         storeTokens(data);
                         return { userId: data.userId, scope: data.scope };
                     });
+            },
+
+            _getAuthUrl: function() {
+                return authUrl;
             }
         };
 
@@ -211,15 +215,16 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
     .factory('appendAccessToken', function ($injector) {
         return {
             request: function (config) {
-                var token = $injector.get('authenticator').accessToken();
-                if (token && isNotAuthRequest(config)) {
+                var authenticator = $injector.get('authenticator'),
+                    token = authenticator.accessToken();
+                if (token && isNotAuthRequest(config, authenticator)) {
                     config.headers['Authorization'] = [ 'Bearer', token ].join(' ');
                 }
                 return config;
             }
         };
 
-        function isNotAuthRequest(config) {
-            return config.url.search('auth') == -1;
+        function isNotAuthRequest(config, authenticator) {
+            return config.url.search(authenticator._getAuthUrl()) == -1;
         }
     });
