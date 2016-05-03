@@ -125,9 +125,8 @@ angular.module('angular-ssqsignon', []).provider('authenticator', function() {
         function getNewAccessToken() {
             if (!refreshAccessTokenPromise) {
                 refreshAccessTokenPromise = (refreshToken() ? refresh().then(storeTokens, askUser) : askUser())
-                    .then(function(data) {
+                    .finally(function() {
                         refreshAccessTokenPromise = null;
-                        return data;
                     });
             }
             return refreshAccessTokenPromise;
